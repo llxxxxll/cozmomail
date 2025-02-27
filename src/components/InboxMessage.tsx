@@ -4,7 +4,7 @@ import { useApp } from '@/context/AppContext';
 import { Message, getChannelIcon } from '@/data/mockData';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { CheckIcon, XIcon, TagIcon } from 'lucide-react';
+import { CheckIcon, XIcon, TagIcon, PaperclipIcon } from 'lucide-react';
 import { 
   Card,
   CardContent
@@ -20,6 +20,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import AttachmentComponent from './Attachment';
 
 interface InboxMessageProps {
   message: Message;
@@ -36,6 +37,7 @@ const InboxMessage: React.FC<InboxMessageProps> = ({ message, isSelected }) => {
   // With the new Supabase structure, customer details are included in the message
   const customer = message.customer;
   const ChannelIcon = getChannelIcon(message.channel);
+  const hasAttachments = message.attachments && message.attachments.length > 0;
   
   const handleMessageClick = () => {
     setSelectedMessageId(message.id);
@@ -111,6 +113,13 @@ const InboxMessage: React.FC<InboxMessageProps> = ({ message, isSelected }) => {
                   </Badge>
                 )}
                 
+                {hasAttachments && (
+                  <Badge variant="outline" className="text-xs flex items-center gap-1 bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-300 border-blue-200 dark:border-blue-800">
+                    <PaperclipIcon className="h-3 w-3" />
+                    {message.attachments!.length}
+                  </Badge>
+                )}
+                
                 {message.isReplied ? (
                   <Badge variant="outline" className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 border-green-200 dark:border-green-800">
                     <CheckIcon className="h-3 w-3 mr-1" />
@@ -135,6 +144,22 @@ const InboxMessage: React.FC<InboxMessageProps> = ({ message, isSelected }) => {
             )}>
               {message.content}
             </div>
+            
+            {/* Attachments preview (only first attachment) */}
+            {hasAttachments && message.attachments!.length > 0 && (
+              <div className="mt-2">
+                <AttachmentComponent 
+                  attachment={message.attachments![0]} 
+                  showDelete={false}
+                  className="bg-gray-50 dark:bg-gray-800/50"
+                />
+                {message.attachments!.length > 1 && (
+                  <div className="text-xs text-muted-foreground mt-1">
+                    +{message.attachments!.length - 1} more attachment{message.attachments!.length > 2 ? 's' : ''}
+                  </div>
+                )}
+              </div>
+            )}
             
             <div className="flex justify-between mt-2">
               <div className="flex items-center gap-2">

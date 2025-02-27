@@ -5,12 +5,14 @@ import {
   Message, 
   ResponseTemplate, 
   Channel, 
-  MessageCategory 
+  MessageCategory,
+  Attachment
 } from '@/data/mockData';
 import {
   dbToCustomer,
   dbToMessage,
   dbToResponseTemplate,
+  dbToAttachment,
   customerToDb,
   messageToDb,
   responseTemplateToDb
@@ -98,7 +100,22 @@ export const deleteCustomer = async (id: string) => {
   return true;
 };
 
-// Message services
+// Attachment services
+export const fetchAttachmentsByMessageId = async (messageId: string): Promise<Attachment[]> => {
+  const { data, error } = await supabase
+    .from('attachments')
+    .select('*')
+    .eq('message_id', messageId);
+  
+  if (error) {
+    console.error('Error fetching attachments:', error);
+    throw error;
+  }
+  
+  return data.map(dbToAttachment);
+};
+
+// Message services with attachment handling
 export const fetchMessages = async () => {
   const { data, error } = await supabase
     .from('messages')
@@ -113,7 +130,19 @@ export const fetchMessages = async () => {
     throw error;
   }
   
-  return data.map(dbToMessage);
+  const messages = data.map(dbToMessage);
+  
+  // Load attachments for each message
+  for (const message of messages) {
+    try {
+      message.attachments = await fetchAttachmentsByMessageId(message.id);
+    } catch (err) {
+      console.error(`Error loading attachments for message ${message.id}:`, err);
+      message.attachments = [];
+    }
+  }
+  
+  return messages;
 };
 
 export const fetchMessageById = async (id: string) => {
@@ -131,7 +160,17 @@ export const fetchMessageById = async (id: string) => {
     throw error;
   }
   
-  return dbToMessage(data);
+  const message = dbToMessage(data);
+  
+  // Load attachments
+  try {
+    message.attachments = await fetchAttachmentsByMessageId(message.id);
+  } catch (err) {
+    console.error(`Error loading attachments for message ${message.id}:`, err);
+    message.attachments = [];
+  }
+  
+  return message;
 };
 
 export const fetchMessagesByCustomerId = async (customerId: string) => {
@@ -146,7 +185,19 @@ export const fetchMessagesByCustomerId = async (customerId: string) => {
     throw error;
   }
   
-  return data.map(dbToMessage);
+  const messages = data.map(dbToMessage);
+  
+  // Load attachments for each message
+  for (const message of messages) {
+    try {
+      message.attachments = await fetchAttachmentsByMessageId(message.id);
+    } catch (err) {
+      console.error(`Error loading attachments for message ${message.id}:`, err);
+      message.attachments = [];
+    }
+  }
+  
+  return messages;
 };
 
 export const createMessage = async (message: Omit<Message, 'id'>) => {
@@ -188,6 +239,27 @@ export const updateMessage = async (id: string, updates: Partial<Message>) => {
 };
 
 export const deleteMessage = async (id: string) => {
+  // Delete attachments first
+  try {
+    const attachments = await fetchAttachmentsByMessageId(id);
+    
+    for (const attachment of attachments) {
+      // Delete from storage
+      await supabase.storage
+        .from('message_attachments')
+        .remove([attachment.filePath]);
+      
+      // Delete record
+      await supabase
+        .from('attachments')
+        .delete()
+        .eq('id', attachment.id);
+    }
+  } catch (err) {
+    console.error('Error deleting message attachments:', err);
+  }
+  
+  // Then delete the message
   const { error } = await supabase
     .from('messages')
     .delete()
@@ -316,4 +388,23 @@ export const getMessageStats = async () => {
     channelDistribution: channelData || [],
     categoryDistribution: categoryData || []
   };
+};
+
+// Communication channel integrations
+export const sendEmailMessage = async (to: string, subject: string, content: string): Promise<boolean> => {
+  // In a real app, this would integrate with an email service like SendGrid, Mailgun, etc.
+  console.log(`[EMAIL INTEGRATION] Sending email to ${to}: ${subject}`);
+  
+  // Simulating an email send - in a real app would connect to a real email service
+  // or use a Supabase Edge Function to handle the sending
+  return true;
+};
+
+export const sendWhatsAppMessage = async (to: string, content: string): Promise<boolean> => {
+  // In a real app, this would integrate with WhatsApp Business API
+  console.log(`[WHATSAPP INTEGRATION] Sending WhatsApp message to ${to}`);
+  
+  // Simulating a WhatsApp send - in a real app would connect to WhatsApp API
+  // or use a Supabase Edge Function to handle the sending
+  return true;
 };

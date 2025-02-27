@@ -8,11 +8,14 @@ import {
   CardContent, 
   CardHeader, 
   CardTitle,
-  CardFooter
+  CardFooter,
+  CardDescription
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { 
   Select,
   SelectContent,
@@ -27,7 +30,10 @@ import {
   SendIcon, 
   SearchIcon,
   Filter,
-  Loader2
+  Loader2,
+  BellRing,
+  BellOff,
+  PaperclipIcon
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -41,6 +47,8 @@ import {
 import CustomerProfile from './CustomerProfile';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import FileUploader from './FileUploader';
+import AttachmentComponent from './Attachment';
 
 const channelOptions: { value: Channel | 'all'; label: string; icon: React.ElementType }[] = [
   { value: 'all', label: 'All Channels', icon: MessageSquare },
@@ -73,12 +81,17 @@ const Inbox: React.FC = () => {
     replyToMessage,
     isLoading,
     error,
-    refreshData
+    refreshData,
+    notifications,
+    toggleNotifications,
+    uploadAttachments,
+    removeAttachment
   } = useApp();
   
   const [replyContent, setReplyContent] = useState<string>('');
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
   const [isReplying, setIsReplying] = useState<boolean>(false);
+  const [showAttachments, setShowAttachments] = useState<boolean>(false);
   
   const filteredMessages = messages
     .filter(message => 
@@ -113,6 +126,8 @@ const Inbox: React.FC = () => {
       try {
         await replyToMessage(selectedMessageId, replyContent);
         setReplyContent('');
+        setSelectedTemplateId('');
+        setShowAttachments(false);
       } catch (err) {
         console.error('Error sending reply:', err);
       } finally {
@@ -128,6 +143,18 @@ const Inbox: React.FC = () => {
       if (template) {
         setReplyContent(template.content);
       }
+    }
+  };
+  
+  const handleFileUpload = async (files: File[]) => {
+    if (!selectedMessageId || files.length === 0) return [];
+    
+    try {
+      const attachments = await uploadAttachments(selectedMessageId, files);
+      return attachments;
+    } catch (error) {
+      console.error('Error uploading files:', error);
+      return [];
     }
   };
 
@@ -242,6 +269,24 @@ const Inbox: React.FC = () => {
                 </Badge>
               )}
             </div>
+            
+            <div className="flex items-center ml-auto">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={toggleNotifications}
+                className={cn(
+                  "h-9 w-9",
+                  notifications && "text-green-500"
+                )}
+              >
+                {notifications ? (
+                  <BellRing className="h-5 w-5" />
+                ) : (
+                  <BellOff className="h-5 w-5" />
+                )}
+              </Button>
+            </div>
           </div>
         </div>
         
@@ -302,6 +347,55 @@ const Inbox: React.FC = () => {
                     value={replyContent}
                     onChange={(e) => setReplyContent(e.target.value)}
                   />
+                  
+                  {/* Attachments section */}
+                  {showAttachments ? (
+                    <div className="border rounded-md p-3">
+                      <div className="flex justify-between items-center mb-2">
+                        <h4 className="text-sm font-medium">Attachments</h4>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => setShowAttachments(false)}
+                        >
+                          Hide
+                        </Button>
+                      </div>
+                      <FileUploader 
+                        onFileUpload={handleFileUpload}
+                        files={selectedMessage.attachments || []}
+                        onFileDelete={removeAttachment}
+                        maxFiles={5}
+                        maxSizeMB={10}
+                      />
+                    </div>
+                  ) : (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setShowAttachments(true)}
+                      className="gap-2"
+                    >
+                      <PaperclipIcon className="h-4 w-4" />
+                      Add Attachments
+                    </Button>
+                  )}
+                  
+                  {/* Show message attachments if any */}
+                  {selectedMessage.attachments && selectedMessage.attachments.length > 0 && (
+                    <div className="border rounded-md p-3">
+                      <h4 className="text-sm font-medium mb-2">Message Attachments</h4>
+                      <div className="space-y-2">
+                        {selectedMessage.attachments.map(attachment => (
+                          <AttachmentComponent 
+                            key={attachment.id} 
+                            attachment={attachment}
+                            showDelete={false}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </CardContent>
               <CardFooter>
@@ -321,6 +415,70 @@ const Inbox: React.FC = () => {
                       Send Reply
                     </>
                   )}
+                </Button>
+              </CardFooter>
+            </Card>
+            
+            {/* Channel integration card */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Communication Channels</CardTitle>
+                <CardDescription>Connect with your customers across multiple channels</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-5 w-5 text-blue-500" />
+                      <div>
+                        <div className="text-sm font-medium">Email</div>
+                        <div className="text-xs text-muted-foreground">Send emails directly</div>
+                      </div>
+                    </div>
+                    <Switch id="email-integration" defaultChecked={true} />
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-5 w-5 text-green-500" />
+                      <div>
+                        <div className="text-sm font-medium">WhatsApp</div>
+                        <div className="text-xs text-muted-foreground">Connect with WhatsApp Business</div>
+                      </div>
+                    </div>
+                    <Switch id="whatsapp-integration" defaultChecked={false} />
+                  </div>
+                  
+                  <div className="flex items-center justify-between opacity-50">
+                    <div className="flex items-center gap-2">
+                      <MessageSquare className="h-5 w-5 text-purple-500" />
+                      <div>
+                        <div className="text-sm font-medium">Instagram</div>
+                        <div className="text-xs text-muted-foreground">Chat via Instagram DMs</div>
+                      </div>
+                    </div>
+                    <Switch id="instagram-integration" disabled />
+                  </div>
+                  
+                  <div className="flex items-center justify-between opacity-50">
+                    <div className="flex items-center gap-2">
+                      <MessageSquare className="h-5 w-5 text-blue-600" />
+                      <div>
+                        <div className="text-sm font-medium">Facebook</div>
+                        <div className="text-xs text-muted-foreground">Connect with Messenger</div>
+                      </div>
+                    </div>
+                    <Switch id="facebook-integration" disabled />
+                  </div>
+                </div>
+              </CardContent>
+              <CardFooter>
+                <Button 
+                  variant="outline" 
+                  className="w-full"
+                  disabled
+                >
+                  Configure Channels
                 </Button>
               </CardFooter>
             </Card>

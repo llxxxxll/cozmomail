@@ -1,5 +1,6 @@
 
-import { Customer, Message, ResponseTemplate, MessageCategory } from '@/data/mockData';
+import { Customer, Message, ResponseTemplate, MessageCategory, Attachment } from '@/data/mockData';
+import { supabase } from '@/integrations/supabase/client';
 
 // Adapters to convert between database schema and application models
 export const dbToCustomer = (dbCustomer: any): Customer => {
@@ -13,6 +14,19 @@ export const dbToCustomer = (dbCustomer: any): Customer => {
     totalMessages: 0, // We'll need to calculate this separately
     avatar: dbCustomer.avatar_url,
     notes: dbCustomer.notes
+  };
+};
+
+export const dbToAttachment = (dbAttachment: any): Attachment => {
+  return {
+    id: dbAttachment.id,
+    fileName: dbAttachment.file_name,
+    filePath: dbAttachment.file_path,
+    fileSize: dbAttachment.file_size,
+    fileType: dbAttachment.file_type,
+    url: supabase.storage
+      .from('message_attachments')
+      .getPublicUrl(dbAttachment.file_path).data.publicUrl
   };
 };
 
@@ -30,7 +44,9 @@ export const dbToMessage = (dbMessage: any): Message => {
     replyContent: dbMessage.reply_content,
     replyTimestamp: dbMessage.reply_timestamp,
     // Handle the joined customer data if it exists
-    customer: dbMessage.customers ? dbToCustomer(dbMessage.customers) : undefined
+    customer: dbMessage.customers ? dbToCustomer(dbMessage.customers) : undefined,
+    // Attachments will be loaded separately
+    attachments: []
   };
 };
 

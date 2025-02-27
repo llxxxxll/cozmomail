@@ -5,10 +5,13 @@ import {
   Message, 
   ResponseTemplate, 
   Channel, 
-  MessageCategory 
+  MessageCategory,
+  Attachment
 } from '@/data/mockData';
 import { useToast } from '@/hooks/use-toast';
 import * as supabaseService from '@/services/supabaseService';
+import { uploadAttachment, getAttachmentsByMessageId, deleteAttachment } from '@/services/fileUploadService';
+import { subscribeToNewMessages, showBrowserNotification } from '@/services/notificationService';
 
 interface AppContextProps {
   customers: Customer[];
@@ -23,6 +26,7 @@ interface AppContextProps {
   isSidebarCollapsed: boolean;
   isLoading: boolean;
   error: Error | null;
+  notifications: boolean;
   
   // Actions
   setSelectedCustomerId: (id: string | null) => void;
@@ -32,12 +36,17 @@ interface AppContextProps {
   setCategoryFilter: (category: MessageCategory | 'all') => void;
   setSearchQuery: (query: string) => void;
   toggleSidebar: () => void;
+  toggleNotifications: () => void;
   
   // Message actions
   markMessageAsRead: (id: string) => Promise<void>;
   replyToMessage: (id: string, content: string) => Promise<void>;
   categorizeMessage: (id: string, category: MessageCategory) => Promise<void>;
-  createNewMessage: (message: Omit<Message, 'id'>) => Promise<void>;
+  createNewMessage: (message: Omit<Message, 'id'>) => Promise<Message>;
+  
+  // Attachment actions
+  uploadAttachments: (messageId: string, files: File[]) => Promise<Attachment[]>;
+  removeAttachment: (attachmentId: string) => Promise<void>;
   
   // Customer actions
   updateCustomerNotes: (id: string, notes: string) => Promise<void>;
@@ -48,6 +57,10 @@ interface AppContextProps {
   addResponseTemplate: (template: Omit<ResponseTemplate, 'id'>) => Promise<void>;
   updateResponseTemplate: (id: string, updates: Partial<Omit<ResponseTemplate, 'id'>>) => Promise<void>;
   deleteResponseTemplate: (id: string) => Promise<void>;
+  
+  // Communication channel integration actions
+  sendEmailToCustomer: (customerId: string, subject: string, content: string) => Promise<void>;
+  sendWhatsAppToCustomer: (customerId: string, content: string) => Promise<void>;
   
   // Refresh data
   refreshData: () => Promise<void>;
@@ -68,6 +81,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | null>(null);
+  const [notifications, setNotifications] = useState<boolean>(
+    typeof window !== 'undefined' 
+      ? localStorage.getItem('notifications') === 'true'
+      : false
+  );
   
   const { toast } = useToast();
 
@@ -75,6 +93,49 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   useEffect(() => {
     refreshData();
   }, []);
+  
+  // Set up message notifications
+  useEffect(() => {
+    // Only set up real-time notifications when they're enabled
+    if (!notifications) return;
+    
+    // Subscribe to new messages
+    const unsubscribe = subscribeToNewMessages(
+      (message) => {
+        // Add the message to our state
+        setMessages(prev => [message, ...prev]);
+        
+        // Show a browser notification
+        const customerName = customers.find(c => c.id === message.customerId)?.name || 'Unknown';
+        showBrowserNotification(
+          `New message from ${customerName}`,
+          message.content.substring(0, 100) + (message.content.length > 100 ? '...' : ''),
+          '/favicon.ico'
+        );
+        
+        // Show a toast notification as well
+        toast({
+          title: `New message from ${customerName}`,
+          description: message.content.substring(0, 100) + (message.content.length > 100 ? '...' : ''),
+        });
+      },
+      (error) => {
+        console.error('Error in message subscription:', error);
+      }
+    );
+    
+    // Cleanup subscription on unmount
+    return () => {
+      unsubscribe();
+    };
+  }, [notifications, customers, toast]);
+  
+  // Save notification preference
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('notifications', notifications.toString());
+    }
+  }, [notifications]);
 
   const refreshData = async () => {
     setIsLoading(true);
@@ -106,6 +167,27 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const toggleSidebar = () => {
     setIsSidebarCollapsed(!isSidebarCollapsed);
+  };
+  
+  const toggleNotifications = async () => {
+    // If turning on notifications, request permission
+    if (!notifications && "Notification" in window) {
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") {
+        toast({
+          title: "Notification permission denied",
+          description: "You need to allow notifications in your browser settings.",
+          variant: "destructive"
+        });
+        return;
+      }
+    }
+    
+    setNotifications(!notifications);
+    
+    toast({
+      title: !notifications ? "Notifications enabled" : "Notifications disabled",
+    });
   };
 
   // Message actions
@@ -150,6 +232,23 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           } : message
         )
       );
+      
+      // Get the original message to determine the channel
+      const message = messages.find(m => m.id === id);
+      if (message) {
+        // Send the reply through the appropriate channel
+        if (message.channel === 'email') {
+          const customer = customers.find(c => c.id === message.customerId);
+          if (customer) {
+            await supabaseService.sendEmailMessage(customer.email, `Re: ${message.subject || 'Your message'}`, content);
+          }
+        } else if (message.channel === 'whatsapp') {
+          const customer = customers.find(c => c.id === message.customerId);
+          if (customer && customer.phone) {
+            await supabaseService.sendWhatsAppMessage(customer.phone, content);
+          }
+        }
+      }
       
       toast({
         title: "Reply sent successfully"
@@ -196,10 +295,83 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       toast({
         title: "Message created successfully"
       });
+      
+      return newMessage;
     } catch (err: any) {
       console.error('Error creating message:', err);
       toast({
         title: "Error creating message",
+        description: err.message,
+        variant: "destructive"
+      });
+      throw err;
+    }
+  };
+  
+  // Attachment actions
+  const uploadAttachments = async (messageId: string, files: File[]): Promise<Attachment[]> => {
+    if (files.length === 0) return [];
+    
+    try {
+      const uploadPromises = files.map(file => uploadAttachment(file, messageId));
+      const attachmentsData = await getAttachmentsByMessageId(messageId);
+      
+      // Update the message in state with the new attachments
+      setMessages(prevMessages => 
+        prevMessages.map(message => 
+          message.id === messageId 
+            ? { ...message, attachments: attachmentsData } 
+            : message
+        )
+      );
+      
+      return attachmentsData;
+    } catch (err: any) {
+      console.error('Error uploading attachments:', err);
+      toast({
+        title: "Error uploading attachments",
+        description: err.message,
+        variant: "destructive"
+      });
+      throw err;
+    }
+  };
+  
+  const removeAttachment = async (attachmentId: string) => {
+    try {
+      // First, get the attachment to know which message it belongs to
+      const { data, error } = await supabase
+        .from('attachments')
+        .select('message_id')
+        .eq('id', attachmentId)
+        .single();
+      
+      if (error) throw error;
+      
+      const messageId = data.message_id;
+      
+      // Delete the attachment
+      await deleteAttachment(attachmentId);
+      
+      // Get updated attachments
+      const updatedAttachments = await getAttachmentsByMessageId(messageId);
+      
+      // Update the message in state
+      setMessages(prevMessages => 
+        prevMessages.map(message => 
+          message.id === messageId 
+            ? { ...message, attachments: updatedAttachments } 
+            : message
+        )
+      );
+      
+      toast({
+        title: "Attachment removed"
+      });
+    } catch (err: any) {
+      console.error('Error removing attachment:', err);
+      toast({
+        title: "Error removing attachment",
         description: err.message,
         variant: "destructive"
       });
@@ -333,6 +505,82 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       });
     }
   };
+  
+  // Communication channel integration actions
+  const sendEmailToCustomer = async (customerId: string, subject: string, content: string) => {
+    try {
+      const customer = customers.find(c => c.id === customerId);
+      if (!customer) {
+        throw new Error("Customer not found");
+      }
+      
+      // Send the email
+      await supabaseService.sendEmailMessage(customer.email, subject, content);
+      
+      // Create a new message record
+      const newMessage = await createNewMessage({
+        customerId,
+        channel: 'email',
+        content,
+        subject,
+        timestamp: new Date().toISOString(),
+        isRead: true,
+        isReplied: true,
+        replyContent: content,
+        replyTimestamp: new Date().toISOString()
+      });
+      
+      toast({
+        title: "Email sent successfully"
+      });
+    } catch (err: any) {
+      console.error('Error sending email:', err);
+      toast({
+        title: "Error sending email",
+        description: err.message,
+        variant: "destructive"
+      });
+    }
+  };
+  
+  const sendWhatsAppToCustomer = async (customerId: string, content: string) => {
+    try {
+      const customer = customers.find(c => c.id === customerId);
+      if (!customer) {
+        throw new Error("Customer not found");
+      }
+      
+      if (!customer.phone) {
+        throw new Error("Customer has no phone number");
+      }
+      
+      // Send the WhatsApp message
+      await supabaseService.sendWhatsAppMessage(customer.phone, content);
+      
+      // Create a new message record
+      const newMessage = await createNewMessage({
+        customerId,
+        channel: 'whatsapp',
+        content,
+        timestamp: new Date().toISOString(),
+        isRead: true,
+        isReplied: true,
+        replyContent: content,
+        replyTimestamp: new Date().toISOString()
+      });
+      
+      toast({
+        title: "WhatsApp message sent successfully"
+      });
+    } catch (err: any) {
+      console.error('Error sending WhatsApp message:', err);
+      toast({
+        title: "Error sending WhatsApp message",
+        description: err.message,
+        variant: "destructive"
+      });
+    }
+  };
 
   const value = {
     customers,
@@ -347,6 +595,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     isSidebarCollapsed,
     isLoading,
     error,
+    notifications,
     
     // Actions
     setSelectedCustomerId,
@@ -356,12 +605,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setCategoryFilter,
     setSearchQuery,
     toggleSidebar,
+    toggleNotifications,
     
     // Message actions
     markMessageAsRead,
     replyToMessage,
     categorizeMessage,
     createNewMessage,
+    
+    // Attachment actions
+    uploadAttachments,
+    removeAttachment,
     
     // Customer actions
     updateCustomerNotes,
@@ -372,6 +626,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     addResponseTemplate,
     updateResponseTemplate,
     deleteResponseTemplate,
+    
+    // Communication channel integration actions
+    sendEmailToCustomer,
+    sendWhatsAppToCustomer,
     
     // Refresh data
     refreshData

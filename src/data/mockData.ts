@@ -17,6 +17,15 @@ export interface Customer {
   notes?: string;
 }
 
+export interface Attachment {
+  id: string;
+  fileName: string;
+  filePath: string;
+  fileSize: number;
+  fileType: string;
+  url: string;
+}
+
 export interface Message {
   id: string;
   customerId: string;
@@ -30,6 +39,7 @@ export interface Message {
   replyContent?: string;
   replyTimestamp?: string; // ISO date string
   customer?: Customer; // For joined customer data
+  attachments?: Attachment[]; // For file attachments
 }
 
 export interface ResponseTemplate {

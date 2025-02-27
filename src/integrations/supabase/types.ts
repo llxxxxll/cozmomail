@@ -197,6 +197,7 @@ export type Database = {
           content: string
           created_at: string | null
           id: string
+          keywords: Json | null
           title: string
           updated_at: string | null
           user_id: string | null
@@ -206,6 +207,7 @@ export type Database = {
           content: string
           created_at?: string | null
           id?: string
+          keywords?: Json | null
           title: string
           updated_at?: string | null
           user_id?: string | null
@@ -215,6 +217,7 @@ export type Database = {
           content?: string
           created_at?: string | null
           id?: string
+          keywords?: Json | null
           title?: string
           updated_at?: string | null
           user_id?: string | null
@@ -234,7 +237,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_category_distribution: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          category: string
+          count: number
+        }[]
+      }
+      get_channel_distribution: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          channel: string
+          count: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
