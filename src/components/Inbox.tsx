@@ -157,7 +157,10 @@ const Inbox: React.FC = () => {
             </Button>
           </div>
           <div className="flex-1 overflow-auto">
-            <InboxMessage message={selectedMessage} />
+            <InboxMessage 
+              message={selectedMessage} 
+              isSelected={true} 
+            />
           </div>
         </div>
       ) : (
