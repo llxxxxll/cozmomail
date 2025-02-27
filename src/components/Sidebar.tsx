@@ -1,97 +1,197 @@
+
 import React from 'react';
+import { cn } from '@/lib/utils';
 import { useApp } from '@/context/AppContext';
 import { useAuth } from '@/context/AuthContext';
+import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
-import { Inbox, LayoutDashboard, Settings, Users, LayoutTemplate, MenuIcon, LogOut } from 'lucide-react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useToast } from '@/hooks/use-toast';
+import { Badge } from '@/components/ui/badge';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
+  BellIcon,
+  LayoutDashboardIcon,
+  InboxIcon,
+  UsersIcon,
+  FileTextIcon,
+  SettingsIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  BellOffIcon,
+} from 'lucide-react';
 
-const menuItems = [
-  { id: 'inbox', label: 'Inbox', icon: Inbox },
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { id: 'templates', label: 'Templates', icon: LayoutTemplate },
-  { id: 'customers', label: 'Customers', icon: Users },
-  { id: 'settings', label: 'Settings', icon: Settings },
-];
+const Sidebar = () => {
+  const location = useLocation();
+  const { 
+    activeView, 
+    setActiveView, 
+    isSidebarCollapsed, 
+    toggleSidebar,
+    messages,
+    notifications,
+    toggleNotifications
+  } = useApp();
+  
+  const { signOut } = useAuth();
+  
+  // Calculate unread message count
+  const unreadCount = messages.filter(msg => !msg.isRead).length;
+  
+  // Determine if the current path is active
+  const isActive = (view: string) => activeView === view;
+  
+  const navItems = [
+    { 
+      name: 'Dashboard', 
+      icon: <LayoutDashboardIcon className="h-5 w-5" />, 
+      view: 'dashboard',
+      badge: null
+    },
+    { 
+      name: 'Inbox', 
+      icon: <InboxIcon className="h-5 w-5" />, 
+      view: 'inbox',
+      badge: unreadCount > 0 ? unreadCount : null
+    },
+    { 
+      name: 'Customers', 
+      icon: <UsersIcon className="h-5 w-5" />, 
+      view: 'customers',
+      badge: null
+    },
+    { 
+      name: 'Templates', 
+      icon: <FileTextIcon className="h-5 w-5" />, 
+      view: 'templates',
+      badge: null
+    },
+    { 
+      name: 'Settings', 
+      icon: <SettingsIcon className="h-5 w-5" />, 
+      view: 'settings',
+      badge: null
+    }
+  ];
 
-const Sidebar: React.FC = () => {
-  const { activeView, setActiveView, isSidebarCollapsed, toggleSidebar } = useApp();
-  const { user, signOut } = useAuth();
-  const { toast } = useToast();
-
-  const initials = user?.user_metadata?.full_name 
-    ? `${user.user_metadata.full_name.split(' ')[0][0]}${user.user_metadata.full_name.split(' ')[1]?.[0] || ''}`
-    : user?.email?.[0]?.toUpperCase() || '?';
-    
-  const handleSignOut = async () => {
-    await signOut();
+  const handleNavigation = (view: 'inbox' | 'dashboard' | 'templates' | 'customers' | 'settings') => {
+    setActiveView(view);
   };
 
   return (
-    <div
-      className={cn(
-        'h-screen bg-white dark:bg-gray-950 border-r border-gray-200 dark:border-gray-800 flex flex-col transition-all duration-300',
-        isSidebarCollapsed ? 'w-20' : 'w-64'
-      )}
-    >
-      <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
-        <h1 
-          className={cn(
-            "font-bold text-primary transition-opacity duration-300",
-            isSidebarCollapsed ? "opacity-0 w-0" : "opacity-100"
-          )}
+    <div className={cn(
+      "h-screen fixed left-0 top-0 bottom-0 z-20 flex flex-col bg-secondary/10 border-r border-gray-200 dark:border-gray-800 transition-all duration-300",
+      isSidebarCollapsed ? "w-20" : "w-64"
+    )}>
+      <div className="flex items-center p-4 h-16">
+        {!isSidebarCollapsed && (
+          <div className="text-xl font-bold">CozmoMail</div>
+        )}
+        <Button 
+          variant="ghost" 
+          size="icon"
+          className={cn("ml-auto", isSidebarCollapsed && "mx-auto")}
+          onClick={toggleSidebar}
+          aria-label={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
-          CozmoMail
-        </h1>
-        <Button variant="ghost" size="icon" onClick={toggleSidebar}>
-          <MenuIcon className="h-5 w-5" />
+          {isSidebarCollapsed ? (
+            <ChevronRightIcon className="h-5 w-5" />
+          ) : (
+            <ChevronLeftIcon className="h-5 w-5" />
+          )}
         </Button>
       </div>
       
-      <div className="flex-1 py-6">
-        <nav className="px-3 space-y-1">
-          {menuItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <Button
-                key={item.id}
-                variant={activeView === item.id ? "secondary" : "ghost"}
-                className={cn(
-                  "w-full justify-start mb-1",
-                  isSidebarCollapsed ? "justify-center px-2" : ""
-                )}
-                onClick={() => setActiveView(item.id as any)}
-              >
-                <Icon className={cn("h-5 w-5", isSidebarCollapsed ? "mr-0" : "mr-2")} />
-                {!isSidebarCollapsed && <span>{item.label}</span>}
-              </Button>
-            );
-          })}
-        </nav>
+      <div className="flex-1 overflow-auto py-6">
+        <div className="space-y-2 px-3">
+          {navItems.map((item) => (
+            <Button
+              key={item.view}
+              variant={isActive(item.view) ? "default" : "ghost"}
+              className={cn(
+                "w-full justify-start font-normal transition-all",
+                isSidebarCollapsed ? "px-3" : "px-4"
+              )}
+              onClick={() => handleNavigation(item.view as any)}
+            >
+              {item.icon}
+              {!isSidebarCollapsed && (
+                <span className="ml-2">{item.name}</span>
+              )}
+              {!isSidebarCollapsed && item.badge && (
+                <Badge variant="destructive" className="ml-auto">
+                  {item.badge}
+                </Badge>
+              )}
+              {isSidebarCollapsed && item.badge && (
+                <Badge variant="destructive" className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center p-0">
+                  {item.badge}
+                </Badge>
+              )}
+            </Button>
+          ))}
+        </div>
       </div>
       
       <div className="p-4 border-t border-gray-200 dark:border-gray-800">
-        <div className="flex items-center justify-between">
-          <div className={cn("flex items-center gap-3", isSidebarCollapsed ? "hidden" : "")}>
-            <Avatar>
-              <AvatarImage src="" alt={user?.user_metadata?.full_name || user?.email} />
-              <AvatarFallback>{initials}</AvatarFallback>
-            </Avatar>
-            <div className="overflow-hidden">
-              <p className="text-sm font-medium truncate">{user?.user_metadata?.full_name || user?.email}</p>
-              <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
-            </div>
-          </div>
-          <Button 
-            variant="ghost" 
-            size="icon"
-            onClick={handleSignOut}
-            title="Sign Out"
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size={isSidebarCollapsed ? "icon" : "default"} 
+                className={cn(
+                  "w-full justify-start",
+                  isSidebarCollapsed && "p-2"
+                )}
+                onClick={toggleNotifications}
+              >
+                {notifications ? (
+                  <BellIcon className="h-5 w-5" />
+                ) : (
+                  <BellOffIcon className="h-5 w-5" />
+                )}
+                {!isSidebarCollapsed && (
+                  <span className="ml-2">
+                    {notifications ? "Notifications On" : "Notifications Off"}
+                  </span>
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side={isSidebarCollapsed ? "right" : "top"}>
+              <p>{notifications ? "Turn off notifications" : "Turn on notifications"}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        
+        <Button 
+          variant="ghost" 
+          size={isSidebarCollapsed ? "icon" : "default"}
+          className={cn(
+            "w-full justify-start mt-2",
+            isSidebarCollapsed && "p-2"
+          )}
+          onClick={signOut}
+        >
+          <svg 
+            xmlns="http://www.w3.org/2000/svg" 
+            className="h-5 w-5" 
+            fill="none" 
+            viewBox="0 0 24 24" 
+            stroke="currentColor"
           >
-            <LogOut className="h-5 w-5 text-muted-foreground" />
-          </Button>
-        </div>
+            <path 
+              strokeLinecap="round" 
+              strokeLinejoin="round" 
+              strokeWidth={2} 
+              d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" 
+            />
+          </svg>
+          {!isSidebarCollapsed && <span className="ml-2">Sign Out</span>}
+        </Button>
       </div>
     </div>
   );
