@@ -1,7 +1,6 @@
 
 import React from 'react';
 import { useApp } from '@/context/AppContext';
-import { getCustomerById, getMessagesByCustomerId } from '@/data/mockData';
 import { formatDistanceToNow } from 'date-fns';
 import { 
   Card, 
@@ -28,10 +27,15 @@ interface CustomerProfileProps {
 }
 
 const CustomerProfile: React.FC<CustomerProfileProps> = ({ customerId }) => {
-  const { updateCustomerNotes, updateCustomerStatus } = useApp();
+  const { 
+    customers, 
+    messages, 
+    updateCustomerNotes, 
+    updateCustomerStatus 
+  } = useApp();
   
-  const customer = getCustomerById(customerId);
-  const customerMessages = getMessagesByCustomerId(customerId);
+  const customer = customers.find(c => c.id === customerId);
+  const customerMessages = messages.filter(m => m.customer_id === customerId);
   
   if (!customer) return null;
   
@@ -43,7 +47,9 @@ const CustomerProfile: React.FC<CustomerProfileProps> = ({ customerId }) => {
     updateCustomerStatus(customer.id, status as any);
   };
   
-  const lastContactText = formatDistanceToNow(new Date(customer.lastContact), { addSuffix: true });
+  const lastContactText = customer.last_contact 
+    ? formatDistanceToNow(new Date(customer.last_contact), { addSuffix: true }) 
+    : 'No recent contact';
   
   const renderStatusBadge = () => {
     switch (customer.status) {
@@ -66,7 +72,11 @@ const CustomerProfile: React.FC<CustomerProfileProps> = ({ customerId }) => {
           </Badge>
         );
       default:
-        return null;
+        return (
+          <Badge className="bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-300 border-gray-200 dark:border-gray-800">
+            {customer.status || 'Unknown'}
+          </Badge>
+        );
     }
   };
 
@@ -81,7 +91,7 @@ const CustomerProfile: React.FC<CustomerProfileProps> = ({ customerId }) => {
       <CardContent className="space-y-4">
         <div className="flex items-center gap-3">
           <Avatar className="h-14 w-14">
-            <AvatarImage src="/placeholder.svg" alt={customer.name} />
+            <AvatarImage src={customer.avatar_url || ""} alt={customer.name} />
             <AvatarFallback>{customer.name.charAt(0)}</AvatarFallback>
           </Avatar>
           
@@ -97,11 +107,12 @@ const CustomerProfile: React.FC<CustomerProfileProps> = ({ customerId }) => {
         <div className="grid grid-cols-2 gap-3 pt-2">
           <div className="flex flex-col gap-1">
             <span className="text-xs text-muted-foreground">Status</span>
-            <Select defaultValue={customer.status} onValueChange={handleStatusChange}>
+            <Select defaultValue={customer.status || "active"} onValueChange={handleStatusChange}>
               <SelectTrigger className="h-9">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="bg-background">
+                <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="new">New</SelectItem>
                 <SelectItem value="returning">Returning</SelectItem>
                 <SelectItem value="vip">VIP</SelectItem>
@@ -121,7 +132,7 @@ const CustomerProfile: React.FC<CustomerProfileProps> = ({ customerId }) => {
             <span className="text-xs text-muted-foreground">Messages</span>
             <div className="text-sm flex items-center gap-1.5 h-9 px-3 py-1 border rounded-md">
               <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
-              <span>{customer.totalMessages}</span>
+              <span>{customerMessages.length || 0}</span>
             </div>
           </div>
           

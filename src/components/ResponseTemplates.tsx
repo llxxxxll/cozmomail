@@ -29,7 +29,8 @@ import {
   PencilIcon, 
   CopyIcon,
   TagIcon,
-  Search
+  Search,
+  Loader2
 } from 'lucide-react';
 import { 
   Select,
@@ -48,13 +49,22 @@ interface TemplateFormData {
 }
 
 const ResponseTemplates: React.FC = () => {
-  const { responseTemplates, addResponseTemplate, updateResponseTemplate, deleteResponseTemplate } = useApp();
+  const { 
+    responseTemplates, 
+    addResponseTemplate, 
+    updateResponseTemplate, 
+    deleteResponseTemplate,
+    isLoading,
+    error 
+  } = useApp();
+  
   const { toast } = useToast();
   
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState<boolean>(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState<boolean>(false);
   const [currentTemplateId, setCurrentTemplateId] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   
   const [formData, setFormData] = useState<TemplateFormData>({
     name: '',
@@ -67,7 +77,9 @@ const ResponseTemplates: React.FC = () => {
     template.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     template.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (template.category && template.category.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    template.keywords.some(keyword => keyword.toLowerCase().includes(searchQuery.toLowerCase()))
+    (template.keywords && template.keywords.some(keyword => 
+      keyword.toLowerCase().includes(searchQuery.toLowerCase())
+    ))
   );
   
   const resetForm = () => {
@@ -79,44 +91,50 @@ const ResponseTemplates: React.FC = () => {
     });
   };
   
-  const handleAddSubmit = (e: React.FormEvent) => {
+  const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name || !formData.content) return;
     
-    addResponseTemplate({
-      name: formData.name,
-      content: formData.content,
-      category: formData.category as any,
-      keywords: formData.keywords.split(',').map(kw => kw.trim())
-    });
+    setIsSubmitting(true);
     
-    toast({
-      title: "Template Added",
-      description: `Template "${formData.name}" has been created successfully.`
-    });
-    
-    resetForm();
-    setIsAddDialogOpen(false);
+    try {
+      await addResponseTemplate({
+        name: formData.name,
+        content: formData.content,
+        category: formData.category as any,
+        keywords: formData.keywords.split(',').map(kw => kw.trim())
+      });
+      
+      resetForm();
+      setIsAddDialogOpen(false);
+    } catch (err) {
+      console.error('Error adding template:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
   
-  const handleEditSubmit = (e: React.FormEvent) => {
+  const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentTemplateId || !formData.name || !formData.content) return;
     
-    updateResponseTemplate(currentTemplateId, {
-      name: formData.name,
-      content: formData.content,
-      category: formData.category as any,
-      keywords: formData.keywords.split(',').map(kw => kw.trim())
-    });
+    setIsSubmitting(true);
     
-    toast({
-      title: "Template Updated",
-      description: `Template "${formData.name}" has been updated successfully.`
-    });
-    
-    resetForm();
-    setIsEditDialogOpen(false);
+    try {
+      await updateResponseTemplate(currentTemplateId, {
+        name: formData.name,
+        content: formData.content,
+        category: formData.category as any,
+        keywords: formData.keywords.split(',').map(kw => kw.trim())
+      });
+      
+      resetForm();
+      setIsEditDialogOpen(false);
+    } catch (err) {
+      console.error('Error updating template:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
   
   const handleEditClick = (templateId: string) => {
@@ -127,23 +145,19 @@ const ResponseTemplates: React.FC = () => {
       name: template.name,
       content: template.content,
       category: template.category,
-      keywords: template.keywords.join(', ')
+      keywords: template.keywords ? template.keywords.join(', ') : ''
     });
     
     setCurrentTemplateId(templateId);
     setIsEditDialogOpen(true);
   };
   
-  const handleDelete = (templateId: string) => {
-    const template = responseTemplates.find(t => t.id === templateId);
-    if (!template) return;
-    
-    deleteResponseTemplate(templateId);
-    
-    toast({
-      title: "Template Deleted",
-      description: `Template "${template.name}" has been deleted.`
-    });
+  const handleDelete = async (templateId: string) => {
+    try {
+      await deleteResponseTemplate(templateId);
+    } catch (err) {
+      console.error('Error deleting template:', err);
+    }
   };
   
   const handleCopyToClipboard = (content: string, name: string) => {
@@ -154,6 +168,31 @@ const ResponseTemplates: React.FC = () => {
       });
     });
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <span className="ml-2">Loading templates...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center p-6 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 rounded-lg">
+        <h3 className="text-lg font-medium text-red-800 dark:text-red-300 mb-2">Error loading templates</h3>
+        <p className="text-red-600 dark:text-red-400">{error.message}</p>
+        <Button 
+          variant="outline" 
+          className="mt-4"
+          onClick={() => window.location.reload()}
+        >
+          Retry
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -238,7 +277,16 @@ const ResponseTemplates: React.FC = () => {
                 <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button type="submit">Create Template</Button>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    'Create Template'
+                  )}
+                </Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -278,7 +326,7 @@ const ResponseTemplates: React.FC = () => {
                   {template.content}
                 </div>
                 
-                {template.keywords.length > 0 && (
+                {template.keywords && template.keywords.length > 0 && (
                   <div className="flex flex-wrap gap-1 mt-3">
                     {template.keywords.slice(0, 4).map((keyword, idx) => (
                       <Badge key={idx} variant="secondary" className="text-xs">
@@ -411,7 +459,16 @@ const ResponseTemplates: React.FC = () => {
               <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit">Save Changes</Button>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  'Save Changes'
+                )}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>

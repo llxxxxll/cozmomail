@@ -26,7 +26,8 @@ import {
   MessageSquare, 
   SendIcon, 
   SearchIcon,
-  Filter
+  Filter,
+  Loader2
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -61,6 +62,7 @@ const categoryOptions: { value: MessageCategory | 'all'; label: string }[] = [
 const Inbox: React.FC = () => {
   const {
     messages,
+    responseTemplates,
     selectedMessageId,
     channelFilter,
     categoryFilter,
@@ -68,10 +70,15 @@ const Inbox: React.FC = () => {
     setChannelFilter,
     setCategoryFilter,
     setSearchQuery,
-    replyToMessage
+    replyToMessage,
+    isLoading,
+    error,
+    refreshData
   } = useApp();
   
   const [replyContent, setReplyContent] = useState<string>('');
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+  const [isReplying, setIsReplying] = useState<boolean>(false);
   
   const filteredMessages = messages
     .filter(message => 
@@ -99,12 +106,55 @@ const Inbox: React.FC = () => {
     setSearchQuery(e.target.value);
   };
   
-  const handleSendReply = () => {
+  const handleSendReply = async () => {
     if (selectedMessageId && replyContent.trim()) {
-      replyToMessage(selectedMessageId, replyContent);
-      setReplyContent('');
+      setIsReplying(true);
+      
+      try {
+        await replyToMessage(selectedMessageId, replyContent);
+        setReplyContent('');
+      } catch (err) {
+        console.error('Error sending reply:', err);
+      } finally {
+        setIsReplying(false);
+      }
     }
   };
+
+  const handleTemplateChange = (templateId: string) => {
+    setSelectedTemplateId(templateId);
+    if (templateId) {
+      const template = responseTemplates.find(t => t.id === templateId);
+      if (template) {
+        setReplyContent(template.content);
+      }
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <span className="ml-2">Loading messages...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center p-6 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 rounded-lg">
+        <h3 className="text-lg font-medium text-red-800 dark:text-red-300 mb-2">Error loading messages</h3>
+        <p className="text-red-600 dark:text-red-400">{error.message}</p>
+        <Button 
+          variant="outline" 
+          className="mt-4"
+          onClick={refreshData}
+        >
+          Retry
+        </Button>
+      </div>
+    );
+  }
   
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -225,7 +275,7 @@ const Inbox: React.FC = () => {
       <div className="lg:col-span-1">
         {selectedMessage ? (
           <div className="space-y-4">
-            <CustomerProfile customerId={selectedMessage.customerId} />
+            <CustomerProfile customerId={selectedMessage.customer_id} />
             
             <Card>
               <CardHeader className="pb-3">
@@ -233,15 +283,16 @@ const Inbox: React.FC = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <Select>
+                  <Select value={selectedTemplateId} onValueChange={handleTemplateChange}>
                     <SelectTrigger>
                       <SelectValue placeholder="Choose a template..." />
                     </SelectTrigger>
                     <SelectContent className="bg-background">
-                      <SelectItem value="thank-you">Thank you for your inquiry</SelectItem>
-                      <SelectItem value="order-status">Order Status Update</SelectItem>
-                      <SelectItem value="product-info">Product Information</SelectItem>
-                      <SelectItem value="support">Technical Support</SelectItem>
+                      {responseTemplates.map(template => (
+                        <SelectItem key={template.id} value={template.id}>
+                          {template.name}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   
@@ -257,10 +308,19 @@ const Inbox: React.FC = () => {
                 <Button 
                   className="w-full gap-2" 
                   onClick={handleSendReply}
-                  disabled={!replyContent.trim()}
+                  disabled={!replyContent.trim() || isReplying}
                 >
-                  <SendIcon className="h-4 w-4" />
-                  Send Reply
+                  {isReplying ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <SendIcon className="h-4 w-4" />
+                      Send Reply
+                    </>
+                  )}
                 </Button>
               </CardFooter>
             </Card>

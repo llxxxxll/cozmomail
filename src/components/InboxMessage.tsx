@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { useApp } from '@/context/AppContext';
-import { Message, getCustomerById, getChannelIcon } from '@/data/mockData';
+import { Message, getChannelIcon } from '@/data/mockData';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { CheckIcon, XIcon, TagIcon } from 'lucide-react';
@@ -33,12 +33,13 @@ const InboxMessage: React.FC<InboxMessageProps> = ({ message, isSelected }) => {
     categorizeMessage
   } = useApp();
   
-  const customer = getCustomerById(message.customerId);
+  // With the new Supabase structure, customer details are included in the message
+  const customer = message.customers;
   const ChannelIcon = getChannelIcon(message.channel);
   
   const handleMessageClick = () => {
     setSelectedMessageId(message.id);
-    if (!message.isRead) {
+    if (!message.is_read) {
       markMessageAsRead(message.id);
     }
   };
@@ -74,24 +75,24 @@ const InboxMessage: React.FC<InboxMessageProps> = ({ message, isSelected }) => {
       className={cn(
         "mb-2 transition-all duration-200 hover:shadow-md cursor-pointer border",
         isSelected ? "border-brand-400 shadow-sm" : "hover:border-gray-300",
-        !message.isRead && "bg-brand-50 dark:bg-brand-900/10"
+        !message.is_read && "bg-brand-50 dark:bg-brand-900/10"
       )}
       onClick={handleMessageClick}
     >
       <CardContent className="p-4">
         <div className="flex items-start gap-3">
           <Avatar className="h-10 w-10 mt-1">
-            <AvatarImage src="/placeholder.svg" alt={customer?.name} />
-            <AvatarFallback>{customer?.name.charAt(0)}</AvatarFallback>
+            <AvatarImage src={customer?.avatar_url || ""} alt={customer?.name} />
+            <AvatarFallback>{customer?.name?.charAt(0) || '?'}</AvatarFallback>
           </Avatar>
           
           <div className="flex-grow min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <span className={cn(
                 "font-medium truncate",
-                !message.isRead && "font-semibold"
+                !message.is_read && "font-semibold"
               )}>
-                {customer?.name}
+                {customer?.name || 'Unknown Customer'}
               </span>
               <span className="text-xs text-muted-foreground whitespace-nowrap">{formattedDate}</span>
               
@@ -110,7 +111,7 @@ const InboxMessage: React.FC<InboxMessageProps> = ({ message, isSelected }) => {
                   </Badge>
                 )}
                 
-                {message.isReplied ? (
+                {message.is_replied ? (
                   <Badge variant="outline" className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 border-green-200 dark:border-green-800">
                     <CheckIcon className="h-3 w-3 mr-1" />
                     Replied
@@ -130,7 +131,7 @@ const InboxMessage: React.FC<InboxMessageProps> = ({ message, isSelected }) => {
             
             <div className={cn(
               "text-sm line-clamp-2",
-              !message.isRead ? "text-foreground" : "text-muted-foreground"
+              !message.is_read ? "text-foreground" : "text-muted-foreground"
             )}>
               {message.content}
             </div>
