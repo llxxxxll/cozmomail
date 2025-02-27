@@ -83,12 +83,12 @@ const Sidebar = () => {
 
   return (
     <div className={cn(
-      "h-screen fixed left-0 top-0 bottom-0 z-20 flex flex-col bg-secondary/10 border-r border-gray-200 dark:border-gray-800 transition-all duration-300",
+      "h-screen fixed left-0 top-0 bottom-0 z-20 flex flex-col bg-white dark:bg-gray-950 border-r border-gray-200 dark:border-gray-800 transition-all duration-300 shadow-sm",
       isSidebarCollapsed ? "w-20" : "w-64"
     )}>
-      <div className="flex items-center p-4 h-16">
+      <div className="flex items-center p-4 h-16 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
         {!isSidebarCollapsed && (
-          <div className="text-xl font-bold">CozmoMail</div>
+          <div className="text-xl font-bold text-primary">CozmoMail</div>
         )}
         <Button 
           variant="ghost" 
@@ -105,7 +105,7 @@ const Sidebar = () => {
         </Button>
       </div>
       
-      <div className="flex-1 overflow-auto py-6">
+      <div className="flex-1 overflow-auto py-6 bg-white dark:bg-gray-950">
         <div className="space-y-2 px-3">
           {navItems.map((item) => (
             <Button
@@ -113,7 +113,10 @@ const Sidebar = () => {
               variant={isActive(item.view) ? "default" : "ghost"}
               className={cn(
                 "w-full justify-start font-normal transition-all",
-                isSidebarCollapsed ? "px-3" : "px-4"
+                isSidebarCollapsed ? "px-3" : "px-4",
+                isActive(item.view) 
+                  ? "bg-primary text-primary-foreground hover:bg-primary/90" 
+                  : "hover:bg-gray-100 dark:hover:bg-gray-900"
               )}
               onClick={() => handleNavigation(item.view as any)}
             >
@@ -136,7 +139,7 @@ const Sidebar = () => {
         </div>
       </div>
       
-      <div className="p-4 border-t border-gray-200 dark:border-gray-800">
+      <div className="p-4 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900">
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -144,7 +147,7 @@ const Sidebar = () => {
                 variant="ghost" 
                 size={isSidebarCollapsed ? "icon" : "default"} 
                 className={cn(
-                  "w-full justify-start",
+                  "w-full justify-start hover:bg-gray-100 dark:hover:bg-gray-800",
                   isSidebarCollapsed && "p-2"
                 )}
                 onClick={toggleNotifications}
@@ -171,7 +174,7 @@ const Sidebar = () => {
           variant="ghost" 
           size={isSidebarCollapsed ? "icon" : "default"}
           className={cn(
-            "w-full justify-start mt-2",
+            "w-full justify-start mt-2 hover:bg-gray-100 dark:hover:bg-gray-800",
             isSidebarCollapsed && "p-2"
           )}
           onClick={signOut}
