@@ -1,31 +1,24 @@
 
 import React from 'react';
+import { useApp } from '@/context/AppContext';
 import MainLayout from '@/layouts/MainLayout';
-import { AppProvider, useApp } from '@/context/AppContext';
-import Inbox from '@/components/Inbox';
 import Dashboard from '@/components/Dashboard';
+import Inbox from '@/components/Inbox';
 import ResponseTemplates from '@/components/ResponseTemplates';
-import { ThemeProvider } from 'next-themes';
+import MessageCategorization from '@/components/MessageCategorization';
+import Settings from '@/components/Settings';
 
-const AppContent: React.FC = () => {
+const Index: React.FC = () => {
   const { activeView } = useApp();
 
   return (
     <MainLayout>
-      {activeView === 'inbox' && <Inbox />}
       {activeView === 'dashboard' && <Dashboard />}
+      {activeView === 'inbox' && <Inbox />}
       {activeView === 'templates' && <ResponseTemplates />}
+      {activeView === 'customers' && <MessageCategorization />}
+      {activeView === 'settings' && <Settings />}
     </MainLayout>
-  );
-};
-
-const Index: React.FC = () => {
-  return (
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-      <AppProvider>
-        <AppContent />
-      </AppProvider>
-    </ThemeProvider>
   );
 };
 

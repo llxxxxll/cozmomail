@@ -1,35 +1,31 @@
 
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { ThemeProvider } from 'next-themes';
-import { AppProvider } from '@/context/AppContext';
+import './App.css';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from '@/context/AuthContext';
-import { Toaster } from '@/components/ui/toaster';
-import Index from '@/pages/Index';
-import Auth from '@/pages/Auth';
-import NotFound from '@/pages/NotFound';
+import { AppProvider } from '@/context/AppContext';
+import { ThemeProvider } from 'next-themes';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import Auth from '@/pages/Auth';
+import Index from '@/pages/Index';
+import NotFound from '@/pages/NotFound';
+import { Toaster } from '@/components/ui/toaster';
 
 function App() {
   return (
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+    <ThemeProvider attribute="class">
       <AuthProvider>
         <AppProvider>
-          <Router>
+          <BrowserRouter>
             <Routes>
               <Route path="/auth" element={<Auth />} />
-              <Route 
-                path="/" 
-                element={
-                  <ProtectedRoute>
-                    <Index />
-                  </ProtectedRoute>
-                } 
-              />
-              <Route path="/404" element={<NotFound />} />
-              <Route path="*" element={<Navigate to="/404" replace />} />
+              <Route path="/" element={
+                <ProtectedRoute>
+                  <Index />
+                </ProtectedRoute>
+              } />
+              <Route path="*" element={<NotFound />} />
             </Routes>
-          </Router>
+          </BrowserRouter>
           <Toaster />
         </AppProvider>
       </AuthProvider>
