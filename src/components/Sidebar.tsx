@@ -1,17 +1,16 @@
-
 import React from 'react';
 import { useApp } from '@/context/AppContext';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { Inbox, LayoutDashboard, Settings, Users, Templates, MenuIcon, LogOut } from 'lucide-react';
+import { Inbox, LayoutDashboard, Settings, Users, LayoutTemplate, MenuIcon, LogOut } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 
 const menuItems = [
   { id: 'inbox', label: 'Inbox', icon: Inbox },
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { id: 'templates', label: 'Templates', icon: Templates },
+  { id: 'templates', label: 'Templates', icon: LayoutTemplate },
   { id: 'customers', label: 'Customers', icon: Users },
   { id: 'settings', label: 'Settings', icon: Settings },
 ];
