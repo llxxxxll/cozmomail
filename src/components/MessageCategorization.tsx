@@ -1,4 +1,5 @@
-import React, { useEffect } from 'react';
+
+import React, { useEffect, useState } from 'react';
 import { useApp } from '@/context/AppContext';
 import { supabase } from '@/integrations/supabase/client';
 import { 
@@ -18,12 +19,6 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { 
-  getCustomerById, 
-  getCategoryDistribution, 
-  Channel, 
-  MessageCategory 
-} from '@/data/mockData';
-import { 
   ChevronDownIcon,
   TagIcon 
 } from 'lucide-react';
@@ -36,23 +31,89 @@ import {
 
 const MessageCategorization: React.FC = () => {
   const { messages, categorizeMessage, setSelectedMessageId, refreshData } = useApp();
+  const [categoryDistribution, setCategoryDistribution] = useState<Record<string, number>>({});
+  const [customersMap, setCustomersMap] = useState<Record<string, any>>({});
+  const [isLoading, setIsLoading] = useState(true);
   
-  const categoryDistribution = getCategoryDistribution();
   const uncategorizedMessages = messages.filter(message => !message.category);
-  
+
+  // Fetch real category distribution from Supabase
+  const fetchCategoryDistribution = async () => {
+    try {
+      const { data, error } = await supabase.rpc('get_category_distribution');
+      if (error) throw error;
+      
+      const distribution: Record<string, number> = {
+        inquiry: 0,
+        complaint: 0,
+        feedback: 0,
+        support: 0,
+        other: 0
+      };
+      
+      data.forEach((item: { category: string, count: number }) => {
+        if (item.category) {
+          distribution[item.category] = item.count;
+        }
+      });
+      
+      setCategoryDistribution(distribution);
+    } catch (error) {
+      console.error('Error fetching category distribution:', error);
+    }
+  };
+
+  // Fetch customers for the messages
+  const fetchCustomers = async () => {
+    try {
+      const customerIds = [...new Set(messages.map(m => m.customerId))].filter(Boolean);
+      if (customerIds.length === 0) return;
+
+      const { data: customers, error } = await supabase
+        .from('customers')
+        .select('id, name')
+        .in('id', customerIds);
+
+      if (error) throw error;
+
+      const customersById = (customers || []).reduce((acc, customer) => {
+        acc[customer.id] = customer;
+        return acc;
+      }, {} as Record<string, any>);
+
+      setCustomersMap(customersById);
+    } catch (error) {
+      console.error('Error fetching customers:', error);
+    }
+  };
+
+  // Initial data fetch
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsLoading(true);
+      await Promise.all([
+        fetchCategoryDistribution(),
+        fetchCustomers()
+      ]);
+      setIsLoading(false);
+    };
+    
+    fetchData();
+  }, [messages]);
+
+  // Real-time subscriptions
   useEffect(() => {
     const customersChannel = supabase
       .channel('customers-changes')
       .on(
         'postgres_changes',
         {
-          event: '*', // Listen for all events (INSERT, UPDATE, DELETE)
+          event: '*',
           schema: 'public',
           table: 'customers'
         },
         () => {
-          // Refresh data when any customer changes
-          refreshData();
+          fetchCustomers();
         }
       )
       .subscribe();
@@ -62,23 +123,30 @@ const MessageCategorization: React.FC = () => {
       .on(
         'postgres_changes',
         {
-          event: '*', // Listen for all events (INSERT, UPDATE, DELETE)
+          event: '*',
           schema: 'public',
           table: 'messages'
         },
         () => {
-          // Refresh data when any message changes
+          fetchCategoryDistribution();
           refreshData();
         }
       )
       .subscribe();
 
-    // Cleanup subscriptions
     return () => {
       supabase.removeChannel(customersChannel);
       supabase.removeChannel(messagesChannel);
     };
   }, [refreshData]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-48">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -125,7 +193,7 @@ const MessageCategorization: React.FC = () => {
               </TableHeader>
               <TableBody>
                 {uncategorizedMessages.slice(0, 5).map((message) => {
-                  const customer = getCustomerById(message.customerId);
+                  const customer = customersMap[message.customerId || ''];
                   return (
                     <TableRow key={message.id}>
                       <TableCell className="font-medium">
