@@ -149,7 +149,7 @@ export const mockMessages: Message[] = [
     isRead: true,
     category: 'feedback',
     isReplied: true,
-    replyContent: 'Thank you so much for your valuable feedback! We're always looking to improve our products, and your insights are incredibly helpful. I've forwarded your suggestions to our product team.',
+    replyContent: "Thank you so much for your valuable feedback! We're always looking to improve our products, and your insights are incredibly helpful. I've forwarded your suggestions to our product team.",
     replyTimestamp: '2023-06-20T08:30:00Z'
   },
   {
@@ -171,7 +171,7 @@ export const mockMessages: Message[] = [
     isRead: true,
     category: 'support',
     isReplied: true,
-    replyContent: 'I'd be happy to help you reset your password! Please visit our password reset page at example.com/reset and follow the instructions. If you continue to have issues, please let me know.',
+    replyContent: "I'd be happy to help you reset your password! Please visit our password reset page at example.com/reset and follow the instructions. If you continue to have issues, please let me know.",
     replyTimestamp: '2023-06-21T10:15:00Z'
   },
   {
@@ -223,14 +223,14 @@ export const mockResponseTemplates: ResponseTemplate[] = [
   {
     id: 't4',
     name: 'Complaint Resolution',
-    content: 'I'm sorry to hear about your experience with [ISSUE]. We take this feedback very seriously and would like to resolve this for you right away. Here's what we can do: [RESOLUTION_OPTIONS]. Please let me know which option works best for you.',
+    content: "I'm sorry to hear about your experience with [ISSUE]. We take this feedback very seriously and would like to resolve this for you right away. Here's what we can do: [RESOLUTION_OPTIONS]. Please let me know which option works best for you.",
     category: 'complaint',
     keywords: ['issue', 'problem', 'complaint', 'unhappy', 'disappointed']
   },
   {
     id: 't5',
     name: 'Technical Support',
-    content: 'I understand you're experiencing technical difficulties with [PRODUCT/SERVICE]. Let's troubleshoot this together. First, could you try [TROUBLESHOOTING_STEP_1]? If that doesn't work, please [TROUBLESHOOTING_STEP_2]. Let me know the results.',
+    content: "I understand you're experiencing technical difficulties with [PRODUCT/SERVICE]. Let's troubleshoot this together. First, could you try [TROUBLESHOOTING_STEP_1]? If that doesn't work, please [TROUBLESHOOTING_STEP_2]. Let me know the results.",
     category: 'support',
     keywords: ['help', 'support', 'technical', 'issue', 'not working']
   }
