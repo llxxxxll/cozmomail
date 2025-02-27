@@ -3,7 +3,7 @@ import { MessageSquare, Mail, Phone } from "lucide-react";
 
 export type Channel = 'email' | 'whatsapp' | 'instagram' | 'facebook';
 export type MessageCategory = 'inquiry' | 'complaint' | 'feedback' | 'support' | 'other';
-export type CustomerStatus = 'new' | 'returning' | 'vip';
+export type CustomerStatus = 'new' | 'returning' | 'vip' | 'active';
 
 export interface Customer {
   id: string;
@@ -29,6 +29,7 @@ export interface Message {
   isReplied: boolean;
   replyContent?: string;
   replyTimestamp?: string; // ISO date string
+  customer?: Customer; // For joined customer data
 }
 
 export interface ResponseTemplate {

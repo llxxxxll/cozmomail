@@ -35,7 +35,7 @@ const CustomerProfile: React.FC<CustomerProfileProps> = ({ customerId }) => {
   } = useApp();
   
   const customer = customers.find(c => c.id === customerId);
-  const customerMessages = messages.filter(m => m.customer_id === customerId);
+  const customerMessages = messages.filter(m => m.customerId === customerId);
   
   if (!customer) return null;
   
@@ -47,8 +47,8 @@ const CustomerProfile: React.FC<CustomerProfileProps> = ({ customerId }) => {
     updateCustomerStatus(customer.id, status as any);
   };
   
-  const lastContactText = customer.last_contact 
-    ? formatDistanceToNow(new Date(customer.last_contact), { addSuffix: true }) 
+  const lastContactText = customer.lastContact 
+    ? formatDistanceToNow(new Date(customer.lastContact), { addSuffix: true }) 
     : 'No recent contact';
   
   const renderStatusBadge = () => {
@@ -91,7 +91,7 @@ const CustomerProfile: React.FC<CustomerProfileProps> = ({ customerId }) => {
       <CardContent className="space-y-4">
         <div className="flex items-center gap-3">
           <Avatar className="h-14 w-14">
-            <AvatarImage src={customer.avatar_url || ""} alt={customer.name} />
+            <AvatarImage src={customer.avatar || ""} alt={customer.name} />
             <AvatarFallback>{customer.name.charAt(0)}</AvatarFallback>
           </Avatar>
           

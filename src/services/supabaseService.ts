@@ -7,6 +7,14 @@ import {
   Channel, 
   MessageCategory 
 } from '@/data/mockData';
+import {
+  dbToCustomer,
+  dbToMessage,
+  dbToResponseTemplate,
+  customerToDb,
+  messageToDb,
+  responseTemplateToDb
+} from '@/utils/dataAdapters';
 
 // Customer services
 export const fetchCustomers = async () => {
@@ -20,7 +28,7 @@ export const fetchCustomers = async () => {
     throw error;
   }
   
-  return data;
+  return data.map(dbToCustomer);
 };
 
 export const fetchCustomerById = async (id: string) => {
@@ -35,14 +43,16 @@ export const fetchCustomerById = async (id: string) => {
     throw error;
   }
   
-  return data;
+  return dbToCustomer(data);
 };
 
 export const createCustomer = async (customer: Omit<Customer, 'id'>) => {
+  const dbCustomer = customerToDb(customer);
+  
   const { data, error } = await supabase
     .from('customers')
     .insert([{ 
-      ...customer,
+      ...dbCustomer,
       user_id: (await supabase.auth.getUser()).data.user?.id
     }])
     .select()
@@ -53,13 +63,15 @@ export const createCustomer = async (customer: Omit<Customer, 'id'>) => {
     throw error;
   }
   
-  return data;
+  return dbToCustomer(data);
 };
 
 export const updateCustomer = async (id: string, updates: Partial<Customer>) => {
+  const dbUpdates = customerToDb(updates);
+  
   const { data, error } = await supabase
     .from('customers')
-    .update(updates)
+    .update(dbUpdates)
     .eq('id', id)
     .select()
     .single();
@@ -69,7 +81,7 @@ export const updateCustomer = async (id: string, updates: Partial<Customer>) => 
     throw error;
   }
   
-  return data;
+  return dbToCustomer(data);
 };
 
 export const deleteCustomer = async (id: string) => {
@@ -101,7 +113,7 @@ export const fetchMessages = async () => {
     throw error;
   }
   
-  return data;
+  return data.map(dbToMessage);
 };
 
 export const fetchMessageById = async (id: string) => {
@@ -119,7 +131,7 @@ export const fetchMessageById = async (id: string) => {
     throw error;
   }
   
-  return data;
+  return dbToMessage(data);
 };
 
 export const fetchMessagesByCustomerId = async (customerId: string) => {
@@ -134,14 +146,16 @@ export const fetchMessagesByCustomerId = async (customerId: string) => {
     throw error;
   }
   
-  return data;
+  return data.map(dbToMessage);
 };
 
 export const createMessage = async (message: Omit<Message, 'id'>) => {
+  const dbMessage = messageToDb(message);
+  
   const { data, error } = await supabase
     .from('messages')
     .insert([{ 
-      ...message,
+      ...dbMessage,
       user_id: (await supabase.auth.getUser()).data.user?.id
     }])
     .select()
@@ -152,13 +166,15 @@ export const createMessage = async (message: Omit<Message, 'id'>) => {
     throw error;
   }
   
-  return data;
+  return dbToMessage(data);
 };
 
 export const updateMessage = async (id: string, updates: Partial<Message>) => {
+  const dbUpdates = messageToDb(updates);
+  
   const { data, error } = await supabase
     .from('messages')
-    .update(updates)
+    .update(dbUpdates)
     .eq('id', id)
     .select()
     .single();
@@ -168,7 +184,7 @@ export const updateMessage = async (id: string, updates: Partial<Message>) => {
     throw error;
   }
   
-  return data;
+  return dbToMessage(data);
 };
 
 export const deleteMessage = async (id: string) => {
@@ -197,24 +213,16 @@ export const fetchResponseTemplates = async () => {
     throw error;
   }
   
-  // Transform from DB format to application format
-  return data.map((template: any) => ({
-    id: template.id,
-    name: template.title,
-    content: template.content,
-    category: template.category,
-    keywords: template.keywords || []
-  }));
+  return data.map(dbToResponseTemplate);
 };
 
 export const createResponseTemplate = async (template: Omit<ResponseTemplate, 'id'>) => {
+  const dbTemplate = responseTemplateToDb(template);
+  
   const { data, error } = await supabase
     .from('response_templates')
     .insert([{ 
-      title: template.name,
-      content: template.content,
-      category: template.category,
-      keywords: template.keywords,
+      ...dbTemplate,
       user_id: (await supabase.auth.getUser()).data.user?.id
     }])
     .select()
@@ -225,23 +233,11 @@ export const createResponseTemplate = async (template: Omit<ResponseTemplate, 'i
     throw error;
   }
   
-  // Transform from DB format to application format
-  return {
-    id: data.id,
-    name: data.title,
-    content: data.content,
-    category: data.category,
-    keywords: data.keywords || []
-  };
+  return dbToResponseTemplate(data);
 };
 
 export const updateResponseTemplate = async (id: string, updates: Partial<Omit<ResponseTemplate, 'id'>>) => {
-  const dbUpdates: any = {};
-  
-  if (updates.name) dbUpdates.title = updates.name;
-  if (updates.content) dbUpdates.content = updates.content;
-  if (updates.category) dbUpdates.category = updates.category;
-  if (updates.keywords) dbUpdates.keywords = updates.keywords;
+  const dbUpdates = responseTemplateToDb(updates);
   
   const { data, error } = await supabase
     .from('response_templates')
@@ -255,14 +251,7 @@ export const updateResponseTemplate = async (id: string, updates: Partial<Omit<R
     throw error;
   }
   
-  // Transform from DB format to application format
-  return {
-    id: data.id,
-    name: data.title,
-    content: data.content,
-    category: data.category,
-    keywords: data.keywords || []
-  };
+  return dbToResponseTemplate(data);
 };
 
 export const deleteResponseTemplate = async (id: string) => {
@@ -303,23 +292,18 @@ export const getMessageStats = async () => {
     throw unansweredError;
   }
   
-  // Get channel distribution
+  // Get channel distribution - we'll need to use SQL query for this
   const { data: channelData, error: channelError } = await supabase
-    .from('messages')
-    .select('channel, count')
-    .group('channel');
+    .rpc('get_channel_distribution');
   
   if (channelError) {
     console.error('Error fetching channel stats:', channelError);
     throw channelError;
   }
   
-  // Get category distribution
+  // Get category distribution - we'll need to use SQL query for this
   const { data: categoryData, error: categoryError } = await supabase
-    .from('messages')
-    .select('category, count')
-    .not('category', 'is', null)
-    .group('category');
+    .rpc('get_category_distribution');
   
   if (categoryError) {
     console.error('Error fetching category stats:', categoryError);

@@ -111,7 +111,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // Message actions
   const markMessageAsRead = async (id: string) => {
     try {
-      const updatedMessage = await supabaseService.updateMessage(id, { is_read: true });
+      const updatedMessage = await supabaseService.updateMessage(id, { isRead: true });
       
       setMessages(prevMessages => 
         prevMessages.map(message => 
@@ -135,9 +135,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const replyToMessage = async (id: string, content: string) => {
     try {
       const updatedMessage = await supabaseService.updateMessage(id, { 
-        is_replied: true, 
-        reply_content: content,
-        reply_timestamp: new Date().toISOString()
+        isReplied: true, 
+        replyContent: content,
+        replyTimestamp: new Date().toISOString()
       });
       
       setMessages(prevMessages => 

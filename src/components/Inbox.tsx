@@ -275,7 +275,7 @@ const Inbox: React.FC = () => {
       <div className="lg:col-span-1">
         {selectedMessage ? (
           <div className="space-y-4">
-            <CustomerProfile customerId={selectedMessage.customer_id} />
+            <CustomerProfile customerId={selectedMessage.customerId} />
             
             <Card>
               <CardHeader className="pb-3">
