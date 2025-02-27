@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import * as supabaseService from '@/services/supabaseService';
 import { uploadAttachment, getAttachmentsByMessageId, deleteAttachment } from '@/services/fileUploadService';
 import { subscribeToNewMessages, showBrowserNotification } from '@/services/notificationService';
+import { supabase } from "@/integrations/supabase/client";
 
 interface AppContextProps {
   customers: Customer[];
