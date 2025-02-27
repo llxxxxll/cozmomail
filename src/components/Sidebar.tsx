@@ -1,126 +1,100 @@
 
 import React from 'react';
 import { useApp } from '@/context/AppContext';
-import { cn } from '@/lib/utils';
-import { MessageSquare, LayoutDashboard, Users, MessageCircle, Settings, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
-import { getUnreadMessagesCount, getUnansweredMessagesCount } from '@/data/mockData';
+import { cn } from '@/lib/utils';
+import { Inbox, LayoutDashboard, Settings, Users, Templates, MenuIcon, LogOut } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useToast } from '@/hooks/use-toast';
+
+const menuItems = [
+  { id: 'inbox', label: 'Inbox', icon: Inbox },
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'templates', label: 'Templates', icon: Templates },
+  { id: 'customers', label: 'Customers', icon: Users },
+  { id: 'settings', label: 'Settings', icon: Settings },
+];
 
 const Sidebar: React.FC = () => {
-  const { 
-    activeView, 
-    setActiveView, 
-    isSidebarCollapsed, 
-    toggleSidebar 
-  } = useApp();
-  
-  const unreadCount = getUnreadMessagesCount();
-  const unansweredCount = getUnansweredMessagesCount();
-  
-  const menuItems = [
-    {
-      id: 'inbox',
-      label: 'Inbox',
-      icon: MessageSquare,
-      badge: unreadCount,
-      onClick: () => setActiveView('inbox')
-    },
-    {
-      id: 'dashboard',
-      label: 'Dashboard',
-      icon: LayoutDashboard,
-      onClick: () => setActiveView('dashboard')
-    },
-    {
-      id: 'templates',
-      label: 'Templates',
-      icon: MessageCircle,
-      onClick: () => setActiveView('templates')
-    },
-    {
-      id: 'customers',
-      label: 'Customers',
-      icon: Users,
-      onClick: () => setActiveView('customers')
-    }
-  ];
+  const { activeView, setActiveView, isSidebarCollapsed, toggleSidebar } = useApp();
+  const { user, signOut } = useAuth();
+  const { toast } = useToast();
+
+  const initials = user?.user_metadata?.full_name 
+    ? `${user.user_metadata.full_name.split(' ')[0][0]}${user.user_metadata.full_name.split(' ')[1]?.[0] || ''}`
+    : user?.email?.[0]?.toUpperCase() || '?';
+    
+  const handleSignOut = async () => {
+    await signOut();
+  };
 
   return (
-    <aside className={cn(
-      "fixed left-0 top-0 z-20 h-screen transition-all duration-300 border-r shadow-sm bg-sidebar py-4",
-      isSidebarCollapsed ? "w-16" : "w-64"
-    )}>
-      <div className="flex flex-col h-full">
-        {/* Logo */}
-        <div className={cn(
-          "flex items-center px-4 py-2 mb-6",
-          isSidebarCollapsed ? "justify-center" : "justify-between"
-        )}>
-          {!isSidebarCollapsed && (
-            <div className="flex items-center gap-2">
-              <span className="text-xl font-semibold bg-gradient-to-r from-brand-600 to-brand-400 bg-clip-text text-transparent">
-                CozmoMail
-              </span>
-            </div>
+    <div
+      className={cn(
+        'h-screen bg-white dark:bg-gray-950 border-r border-gray-200 dark:border-gray-800 flex flex-col transition-all duration-300',
+        isSidebarCollapsed ? 'w-20' : 'w-64'
+      )}
+    >
+      <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
+        <h1 
+          className={cn(
+            "font-bold text-primary transition-opacity duration-300",
+            isSidebarCollapsed ? "opacity-0 w-0" : "opacity-100"
           )}
-          
+        >
+          CozmoMail
+        </h1>
+        <Button variant="ghost" size="icon" onClick={toggleSidebar}>
+          <MenuIcon className="h-5 w-5" />
+        </Button>
+      </div>
+      
+      <div className="flex-1 py-6">
+        <nav className="px-3 space-y-1">
+          {menuItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <Button
+                key={item.id}
+                variant={activeView === item.id ? "secondary" : "ghost"}
+                className={cn(
+                  "w-full justify-start mb-1",
+                  isSidebarCollapsed ? "justify-center px-2" : ""
+                )}
+                onClick={() => setActiveView(item.id as any)}
+              >
+                <Icon className={cn("h-5 w-5", isSidebarCollapsed ? "mr-0" : "mr-2")} />
+                {!isSidebarCollapsed && <span>{item.label}</span>}
+              </Button>
+            );
+          })}
+        </nav>
+      </div>
+      
+      <div className="p-4 border-t border-gray-200 dark:border-gray-800">
+        <div className="flex items-center justify-between">
+          <div className={cn("flex items-center gap-3", isSidebarCollapsed ? "hidden" : "")}>
+            <Avatar>
+              <AvatarImage src="" alt={user?.user_metadata?.full_name || user?.email} />
+              <AvatarFallback>{initials}</AvatarFallback>
+            </Avatar>
+            <div className="overflow-hidden">
+              <p className="text-sm font-medium truncate">{user?.user_metadata?.full_name || user?.email}</p>
+              <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+            </div>
+          </div>
           <Button 
             variant="ghost" 
-            size="icon" 
-            onClick={toggleSidebar}
-            className="text-muted-foreground hover:text-foreground"
+            size="icon"
+            onClick={handleSignOut}
+            title="Sign Out"
           >
-            {isSidebarCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+            <LogOut className="h-5 w-5 text-muted-foreground" />
           </Button>
         </div>
-        
-        {/* Menu Items */}
-        <div className="flex-grow px-2 space-y-1">
-          {menuItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={item.onClick}
-              className={cn(
-                "sidebar-item w-full",
-                activeView === item.id && "sidebar-item-active",
-                isSidebarCollapsed && "justify-center"
-              )}
-            >
-              <item.icon className="h-5 w-5 flex-shrink-0" />
-              {!isSidebarCollapsed && (
-                <span className="flex-grow text-left">{item.label}</span>
-              )}
-              {!isSidebarCollapsed && item.badge && item.badge > 0 && (
-                <span className="rounded-full bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300 text-xs font-medium px-2 py-0.5">
-                  {item.badge}
-                </span>
-              )}
-              {isSidebarCollapsed && item.badge && item.badge > 0 && (
-                <span className="absolute -top-1 -right-1 rounded-full bg-brand-500 text-white text-xs w-4 h-4 flex items-center justify-center">
-                  {item.badge}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-        
-        {/* Bottom section */}
-        <div className="px-2 py-2 mt-auto">
-          <button
-            onClick={() => {}}
-            className={cn(
-              "sidebar-item w-full",
-              isSidebarCollapsed && "justify-center"
-            )}
-          >
-            <Settings className="h-5 w-5 flex-shrink-0" />
-            {!isSidebarCollapsed && (
-              <span className="flex-grow text-left">Settings</span>
-            )}
-          </button>
-        </div>
       </div>
-    </aside>
+    </div>
   );
 };
 
