@@ -1,6 +1,6 @@
-
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useApp } from '@/context/AppContext';
+import { supabase } from '@/integrations/supabase/client';
 import { 
   Card, 
   CardContent, 
@@ -35,11 +35,51 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 const MessageCategorization: React.FC = () => {
-  const { messages, categorizeMessage, setSelectedMessageId } = useApp();
+  const { messages, categorizeMessage, setSelectedMessageId, refreshData } = useApp();
   
   const categoryDistribution = getCategoryDistribution();
   const uncategorizedMessages = messages.filter(message => !message.category);
   
+  useEffect(() => {
+    const customersChannel = supabase
+      .channel('customers-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Listen for all events (INSERT, UPDATE, DELETE)
+          schema: 'public',
+          table: 'customers'
+        },
+        () => {
+          // Refresh data when any customer changes
+          refreshData();
+        }
+      )
+      .subscribe();
+
+    const messagesChannel = supabase
+      .channel('messages-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Listen for all events (INSERT, UPDATE, DELETE)
+          schema: 'public',
+          table: 'messages'
+        },
+        () => {
+          // Refresh data when any message changes
+          refreshData();
+        }
+      )
+      .subscribe();
+
+    // Cleanup subscriptions
+    return () => {
+      supabase.removeChannel(customersChannel);
+      supabase.removeChannel(messagesChannel);
+    };
+  }, [refreshData]);
+
   return (
     <div className="space-y-6">
       <div>

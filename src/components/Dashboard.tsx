@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '@/context/AppContext';
 import { 
   Card, 
@@ -8,13 +8,7 @@ import {
   CardHeader, 
   CardTitle 
 } from '@/components/ui/card';
-import { 
-  getUnreadMessagesCount, 
-  getUnansweredMessagesCount, 
-  mockChannelStats, 
-  getCategoryDistribution,
-  MessageCategory 
-} from '@/data/mockData';
+import { MessageCategory } from '@/data/mockData';
 import { Mail, MessageSquare, Clock, CheckCircle } from 'lucide-react';
 import { 
   BarChart, 
@@ -28,32 +22,126 @@ import {
   Pie, 
   Cell, 
 } from 'recharts';
+import { supabase } from '@/integrations/supabase/client';
+import { getMessageStats } from '@/services/statisticsService';
 
 const Dashboard: React.FC = () => {
-  const channelData = mockChannelStats.map(stat => ({
-    name: stat.channel,
-    value: stat.messageCount
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    unreadCount: 0,
+    unansweredCount: 0,
+    channelDistribution: [] as { channel: string, count: number }[],
+    categoryDistribution: [] as { category: string, count: number }[]
+  });
+  const [averageResponseTime, setAverageResponseTime] = useState(0);
+  const [responseTimeByChannel, setResponseTimeByChannel] = useState<{ name: string, time: number }[]>([]);
+  
+  // Load initial data
+  useEffect(() => {
+    fetchStats();
+  }, []);
+
+  // Set up real-time subscription for messages table
+  useEffect(() => {
+    const channel = supabase
+      .channel('dashboard-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Listen for all events (INSERT, UPDATE, DELETE)
+          schema: 'public',
+          table: 'messages'
+        },
+        () => {
+          // Refresh stats when any message changes
+          fetchStats();
+        }
+      )
+      .subscribe();
+
+    // Cleanup subscription
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const fetchStats = async () => {
+    try {
+      setLoading(true);
+      const messageStats = await getMessageStats();
+      
+      // Calculate average response time (mock data for now)
+      // In a real implementation, you would calculate this from the data
+      const avgTime = Math.round(Math.random() * 100) + 50; // For demo purposes
+      
+      // Format channel data for charts
+      const channelData = messageStats.channelDistribution.map(item => ({
+        name: item.channel.charAt(0).toUpperCase() + item.channel.slice(1),
+        value: Number(item.count)
+      }));
+      
+      // Format category data for charts
+      const categoryData = messageStats.categoryDistribution.map(item => ({
+        name: item.category.charAt(0).toUpperCase() + item.category.slice(1),
+        value: Number(item.count)
+      }));
+      
+      // Mock response time data by channel
+      // In a real implementation, you would calculate this from the database
+      const responseTimeData = messageStats.channelDistribution.map(item => ({
+        name: item.channel.charAt(0).toUpperCase() + item.channel.slice(1),
+        time: Math.round(Math.random() * 200) + 30 // For demo purposes
+      }));
+      
+      setStats({
+        unreadCount: messageStats.unreadCount,
+        unansweredCount: messageStats.unansweredCount,
+        channelDistribution: messageStats.channelDistribution,
+        categoryDistribution: messageStats.categoryDistribution
+      });
+      
+      setAverageResponseTime(avgTime);
+      setResponseTimeByChannel(responseTimeData);
+    } catch (error) {
+      console.error('Error fetching dashboard stats:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Calculate total message count
+  const totalMessages = stats.channelDistribution.reduce(
+    (sum, channel) => sum + Number(channel.count), 
+    0
+  );
+  
+  // Calculate response rate
+  const responseRate = totalMessages > 0 
+    ? Math.round(((totalMessages - stats.unansweredCount) / totalMessages) * 100) 
+    : 0;
+  
+  // Format channel data for the bar chart
+  const channelChartData = stats.channelDistribution.map(item => ({
+    name: item.channel.charAt(0).toUpperCase() + item.channel.slice(1),
+    value: Number(item.count)
   }));
   
-  const categoryData = Object.entries(getCategoryDistribution()).map(([category, count]) => ({
-    name: category.charAt(0).toUpperCase() + category.slice(1),
-    value: count
+  // Format category data for the pie chart
+  const categoryChartData = stats.categoryDistribution.map(item => ({
+    name: item.category.charAt(0).toUpperCase() + item.category.slice(1),
+    value: Number(item.count)
   }));
-  
-  // Response time data
-  const responseTimeData = mockChannelStats.map(stat => ({
-    name: stat.channel.charAt(0).toUpperCase() + stat.channel.slice(1),
-    time: stat.averageResponseTime
-  }));
-  
-  // Calculate total message counts
-  const totalMessages = mockChannelStats.reduce((sum, stat) => sum + stat.messageCount, 0);
-  const unreadMessages = getUnreadMessagesCount();
-  const unansweredMessages = getUnansweredMessagesCount();
-  const responseRate = Math.round(((totalMessages - unansweredMessages) / totalMessages) * 100);
   
   // Colors for charts
   const COLORS = ['#0ea5e9', '#f97316', '#8b5cf6', '#10b981', '#ef4444'];
+  
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-[60vh]">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
   
   return (
     <div className="space-y-6 animate-fade-in">
@@ -80,7 +168,7 @@ const Dashboard: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground mb-1">Unread Messages</p>
-                <p className="text-3xl font-bold">{unreadMessages}</p>
+                <p className="text-3xl font-bold">{stats.unreadCount}</p>
               </div>
               <div className="h-12 w-12 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-amber-600 dark:text-amber-400">
                 <Mail className="h-6 w-6" />
@@ -108,7 +196,7 @@ const Dashboard: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground mb-1">Avg. Response Time</p>
-                <p className="text-3xl font-bold">102<span className="text-base font-normal ml-1">min</span></p>
+                <p className="text-3xl font-bold">{averageResponseTime}<span className="text-base font-normal ml-1">min</span></p>
               </div>
               <div className="h-12 w-12 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-600 dark:text-purple-400">
                 <Clock className="h-6 w-6" />
@@ -131,7 +219,7 @@ const Dashboard: React.FC = () => {
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
-                  data={channelData}
+                  data={channelChartData}
                   margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" />
@@ -169,7 +257,7 @@ const Dashboard: React.FC = () => {
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={categoryData}
+                    data={categoryChartData}
                     cx="50%"
                     cy="50%"
                     innerRadius={60}
@@ -179,7 +267,7 @@ const Dashboard: React.FC = () => {
                     labelLine={false}
                     label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                   >
-                    {categoryData.map((entry, index) => (
+                    {categoryChartData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
@@ -207,7 +295,7 @@ const Dashboard: React.FC = () => {
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
-                  data={responseTimeData}
+                  data={responseTimeByChannel}
                   layout="vertical"
                   margin={{ top: 20, right: 30, left: 40, bottom: 5 }}
                 >
