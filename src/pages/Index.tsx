@@ -1,13 +1,31 @@
-// Update this page (the content is just a fallback if you fail to update the page)
 
-const Index = () => {
+import React from 'react';
+import MainLayout from '@/layouts/MainLayout';
+import { AppProvider, useApp } from '@/context/AppContext';
+import Inbox from '@/components/Inbox';
+import Dashboard from '@/components/Dashboard';
+import ResponseTemplates from '@/components/ResponseTemplates';
+import { ThemeProvider } from 'next-themes';
+
+const AppContent: React.FC = () => {
+  const { activeView } = useApp();
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-gray-600">Start building your amazing project here!</p>
-      </div>
-    </div>
+    <MainLayout>
+      {activeView === 'inbox' && <Inbox />}
+      {activeView === 'dashboard' && <Dashboard />}
+      {activeView === 'templates' && <ResponseTemplates />}
+    </MainLayout>
+  );
+};
+
+const Index: React.FC = () => {
+  return (
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+      <AppProvider>
+        <AppContent />
+      </AppProvider>
+    </ThemeProvider>
   );
 };
 
